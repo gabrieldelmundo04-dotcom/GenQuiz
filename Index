@@ -1,0 +1,72 @@
+import React, { useState } from 'react';
+
+export default function Home() {
+  const [file, setFile] = useState<File | null>(null);
+  const [text, setText] = useState('');
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [types, setTypes] = useState({ mcq: true, tf: true, enum: true, matching: true });
+
+  async function handleParse(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file) return alert('Please select a file first');
+    setLoading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/parse', { method: 'POST', body: fd });
+    const data = await res.json();
+    setText(data.text || '');
+    setLoading(false);
+  }
+
+  async function handleGenerate() {
+    setLoading(true);
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, types })
+    });
+    const data = await res.json();
+    setQuestions(data.questions || []);
+    setLoading(false);
+  }
+
+  return (
+    <main style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+      <h1>GenQuiz — Quiz Generator</h1>
+      <form onSubmit={handleParse}>
+        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <button type="submit">Upload & Extract</button>
+      </form>
+
+      <section style={{ marginTop: 20 }}>
+        <h2>Extracted Text</h2>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} style={{ width: '100%' }} />
+      </section>
+
+      <section style={{ marginTop: 12 }}>
+        <h3>Question types</h3>
+        <label><input type="checkbox" checked={types.mcq} onChange={(e) => setTypes({ ...types, mcq: e.target.checked })} /> Multiple choice</label>
+        <label style={{ marginLeft: 8 }}><input type="checkbox" checked={types.tf} onChange={(e) => setTypes({ ...types, tf: e.target.checked })} /> True/False</label>
+        <label style={{ marginLeft: 8 }}><input type="checkbox" checked={types.enum} onChange={(e) => setTypes({ ...types, enum: e.target.checked })} /> Enumeration</label>
+        <label style={{ marginLeft: 8 }}><input type="checkbox" checked={types.matching} onChange={(e) => setTypes({ ...types, matching: e.target.checked })} /> Matching</label>
+      </section>
+
+      <div style={{ marginTop: 12 }}>
+        <button onClick={handleGenerate} disabled={loading}>Generate Questions</button>
+      </div>
+
+      <section style={{ marginTop: 20 }}>
+        <h2>Generated Questions</h2>
+        {loading && <p>Generating…</p>}
+        {questions.map((q, i) => (
+          <div key={i} style={{ border: '1px solid #ddd', padding: 8, marginBottom: 8 }}>
+            <strong>{q.type}</strong>
+            <div>{q.question}</div>
+            <div style={{ fontStyle: 'italic' }}>Answer: {q.answer}</div>
+          </div>
+        ))}
+      </section>
+    </main>
+  );
+}
